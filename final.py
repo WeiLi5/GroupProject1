@@ -407,7 +407,7 @@ def setup_delivery():
                     else:
                         break
             try:
-                cursor.execute("Insert into deliveries trackingno, oid, pickUpTime, dropOffTime) VALUES (?,?,?,NULL)",
+                cursor.execute("Insert into deliveries (trackingno, oid, pickUpTime, dropOffTime) VALUES (?,?,?,NULL)",
                            (trackNo, o, pick_up_time))
                 connection.commit()
                 print("\nSuccessfully set up delivery for [ %s ] with tracking number: [" % o, trackNo, '] .\n')

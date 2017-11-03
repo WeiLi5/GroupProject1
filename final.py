@@ -5,6 +5,7 @@ import os.path
 import getpass
 import random
 
+
 connection = None
 cursor = None
 is_login = False
@@ -129,11 +130,11 @@ def init_tables():
 
     delivery_query = '''
                         CREATE TABLE deliveries (
-                                    trackingno  INTEGER,
+                                    trackingNo  INTEGER,
                                     oid         INTEGER,
                                     pickUpTime  DATE,
                                     dropOffTime DATE,
-                                    PRIMARY KEY (trackingno,oid),
+                                    PRIMARY KEY (trackingNo,oid),
                                     FOREIGN KEY (oid) REFERENCES orders(oid));
                     '''
 
@@ -246,7 +247,7 @@ def init_data():
                         '''
 
     insert_delivery = '''
-                        INSERT INTO deliveries (trackingno, oid, pickUpTime, dropOffTime) VALUES
+                        INSERT INTO deliveries (trackingNo, oid, pickUpTime, dropOffTime) VALUES
                                 (1345, 101, NULL , '2017-10-12'),
                                 (1345, 103, '2017-10-29', '2017-10-12'),
                                 (2468, 102, '2017-10-29', '2017-10-03'),
@@ -270,6 +271,7 @@ def init_data():
 
 # User will login as agent or customer
 def login(table):
+    global uid
 
     uid = input(table[0].upper()+table[1:-1]+" ID: ")
     password = getpass.getpass()
@@ -345,21 +347,55 @@ def place_order():
                 break
         if all_checked:
             # generate unique id
+            print("\nSetting up the new delivery...\n")
+            orderNo = random.randint(100,1000)
+            cursor.execute("select oid from orders where oid = ?", (orderNo,))
+            checkDup = cursor.fetchone()
+            while checkDup:
+                orderNo = random.randint(100,1000)
+                cursor.execute("select oid from orders where oid = ?", (orderNo,))
+                checkDup = cursor.fetchone()
+
 
             # get user address
+            cursor.execute("select address from customers where cid = ?", (uid,))
+            address=cursor.fetchone()
+
+            now=datetime.datetime.today().strftime('%Y-%m-%d')
+            print(now)
 
 
-            # insert into order
+
+            #insert into order
+            #bugs in here
+            cursor.execute("Insert into orders (oid, cid, odate, address) VALUES (?,?,?,?)",(orderNo,uid,now,address))
+            connection.commit()
+
             while (len(basket)):
-                item = pop(basket)
+                item = basket.pop()
+                row = item.get_tuple()
+                pid = row[1]
+                sid = row[3]
+                qty = row[-1]
+                uprice=row[-2]
+
+                #cursor.execute("Insert into orders (trackingNo, oid, pickUpTime, dropOffTime) VALUES (?,?,?,NULL)",
+                          # (trackNo, o, pick_up_time))
+                #connection.commit()
+                
+
                 # insert into olines
+                cursor.execute("Insert into olines (oid, sid, pid, qty, uprice) VALUES (?,?,?,?,?)",
+                           (orderNo, sid, pid, qty, uprice))
+                connection.commit()
+
             break
             
 
-def list_order:
+#def list_order():
     # kwarg = {'function':table_row}
 
-def table_row(kwarg):
+#def table_row(kwarg):
     # kwarg = {'row':[]}
 
 
@@ -647,12 +683,11 @@ def table_menu(table,cols,page,kwarg):
 def setup_delivery():
     print("\nSetting up the new delivery...\n")
     trackNo = random.randint(1000,10000)
-    cursor.execute("select trackingno from deliveries where trackingno = ?", (trackNo,))
+    cursor.execute("select trackingNo from deliveries where trackingNo = ?", (trackNo,))
     result = cursor.fetchone()
-    print(result)
     while result:
         trackNo = random.randint(1000,10000)
-        cursor.execute("select trackingno from deliveries where trackingno = ?", (trackNo,))
+        cursor.execute("select trackingNo from deliveries where trackingNo = ?", (trackNo,))
         result = cursor.fetchone()
     oid = input("Enter order ID: ")
     oid = oid.split()
@@ -680,7 +715,7 @@ def setup_delivery():
                     else:
                         break
             try:
-                cursor.execute("Insert into deliveries (trackingno, oid, pickUpTime, dropOffTime) VALUES (?,?,?,NULL)",
+                cursor.execute("Insert into deliveries (trackingNo, oid, pickUpTime, dropOffTime) VALUES (?,?,?,NULL)",
                            (trackNo, o, pick_up_time))
                 connection.commit()
                 print("\nSuccessfully set up delivery for [ %s ] with tracking number: [" % o, trackNo, '] .\n')
@@ -690,7 +725,7 @@ def setup_delivery():
                 return
 
 def update_delivery():
-    trackNo = input("\nPlease enter the trackingno [empty to cancel]: ")
+    trackNo = input("\nPlease enter the trackingNo [empty to cancel]: ")
     if not trackNo:
         return
     try:
@@ -699,7 +734,7 @@ def update_delivery():
         print("\nInvalid Input!")
         return
     trackNo = int(trackNo)
-    cursor.execute("select * from deliveries where trackingno = ?", (trackNo,))
+    cursor.execute("select * from deliveries where trackingNo = ?", (trackNo,))
     result = cursor.fetchall()
     if not result:
         print("\n"+"-"*25)
@@ -814,6 +849,7 @@ def check_date(date_text):
 
 
 def signup():
+    global uid
     uid = input("Customer ID: ")
     name = input("Customer Name: ")
     addr = input("Address: ")

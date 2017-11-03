@@ -11,17 +11,22 @@ is_login = False
 is_end = False
 user_type = None
 user_id = None
+basket = []
 
-# class User:
-#     def __init__(self,user_id):
-#         self.user_id = user_id
-#     def get_id(self):
-#         return self.user_id
-# class Customer(User):
-#     def __init__(self):
-#         super(self,Customer).__init__()
-#         self.basket = []
+class Item:
+    def __init__(self,store_name,store_id,product_name,product_id,unit,price,qty):
+        self.store_name = store_name
+        self.store_id = store_id
+        self.product_name = product_name
+        self.product_id = product_id
+        self.unit = unit
+        self.qty = qty
+        self.price = price
+    def set_qty(self,qty):
+        self.qty = qty
 
+    def get_tuple(self):
+        return(self.product_name,self.product_id,self.store_name,self.store_id,self.unit,self.price,self.qty)
 
 # Create hash function in here
 def connect(path):
@@ -196,7 +201,9 @@ def init_data():
     insert_oline = '''
                         INSERT INTO olines(oid, sid, pid, qty, uprice) VALUES
                                 (101, 1, '123456', 3, 3.1),
+                                (101, 2, '234576', 3, 3.1),
                                 (103, 2, '123456', 5, 2.0),
+                                (103, 2, '234576', 5, 2.0),
                                 (102, 2, '002390', 2, 6.2),
                                 (203, 3, '234576', 1, 5.4),
                                 (503, 4, '234598', 8, 6.7),
@@ -230,6 +237,9 @@ def init_data():
                                 (2, '123456', 5, 2.6),
                                 (2, '002390', 2, 6.2),
                                 (3, '234576', 1, 5.4),
+                                (4, '234576', 1, 2.4),
+                                (2, '234576', 0, 1.4),
+                                (1, '234576', 0, 0.4),
                                 (4, '234598', 8, 6.7),
                                 (2, '000930', 9, 3.2),
                                 (2, '666777', 4, 2.1);
@@ -303,15 +313,67 @@ def login_screen():
     else:
         print("Invalid Option!")
 
+
+def place_order():
+    global basket,cursor
+    while 1:
+        if not len(basket):
+            print("You have no item in your basket")
+            return
+        all_checked = True
+        for i in range(len(basket)):
+            item = basket[i]
+            row = item.get_tuple()
+            pid = row[1]
+            sid = row[3]
+            qty = row[-1]
+
+            query = "select qty from carries where sid =? and pid=?"
+            data = (sid,pid)
+            cursor.execute(query,data)
+            result = cursor.fetchall()
+            if not len(result):
+                print("The store no longer carries this product!")
+                return
+            if result[0][0] < qty:
+                print("The quantity for product(%s) in store(%s) is:\t%d"%(row[0],row[2],result[0][0]))
+                print("The quantity for this product and this store in your basket is:\t%d"%(qty))
+                print("Please change your quantity")
+                modify_item({'index':i})
+                qty = item.get_tuple()[-1]
+                all_checked = False
+                break
+        if all_checked:
+            # generate unique id
+
+            # get user address
+
+
+            # insert into order
+            while (len(basket)):
+                item = pop(basket)
+                # insert into olines
+            break
+            
+
+def list_order:
+    # kwarg = {'function':table_row}
+
+def table_row(kwarg):
+    # kwarg = {'row':[]}
+
+
+
+
 # After the user login as a customer
 # The customer menu will be displayed
-
 def customer_menu():
     instruction = "\n"+"-"*20+"\n"
     instruction += "1.\tSearch for products\n"
     instruction += "2.\tPlace an order\n"
     instruction += "3.\tList orders\n"
-    instruction += "4.\tLog Out\n"
+    instruction += "4.\tModify Basket\n"
+    instruction += "5.\tLog Out\n"
     instruction += "-"*20
 
     print(instruction)
@@ -323,8 +385,11 @@ def customer_menu():
     elif option == '3':
         list_orders()
     elif option == '4':
-        global is_login
+        modify_basket()
+    elif option == '5':
+        global is_login,basket
         is_login = False
+        basket = []
     else:
         print("Invalid Option!")
 
@@ -353,22 +418,230 @@ def agent_menu():
     else:
         print("Invalid Option!")
 
+def modify_basket():
+    cols = ["Product Name","Product ID","Store Name","Store ID","  Unit  ","Price","Quantity"]
+    end = False
+    page = 0
+    result = []
+    for item in basket:
+        result.append(item.get_tuple())
+    while not end:
+        print("*** Select item to modify qty, set to 0 to delete it! ***")
+        end,page = table_menu(result,cols,page,{'function':modify_item})
 
+def modify_item(kwarg):
+    global basket
+    index = kwarg['index']
+    item = basket[index]
+    while 1:
+       qty = input("You want change quantity to(set to 0 to delete it): ")
+       if not len(qty):
+           qty = 1
+           break
+       try:
+           qty = int(qty)
+       except:
+           continue
+       else:
+           break
+    if qty <= 0:
+        basket.pop(index)
+    else:
+        item.set_qty(qty)
+        
 # Customer can enter keyword(s) to search products
 def search_products():
     keywords = input("Please input one or more keywords: ").split()
     if not len(keywords):
         print("Enter At Least One Keyword!")
         return
-    query = "SELECT pid from ("
+    query = '''
+    select r1.pid,r1.name,r1.unit,ifnull(r2.num_stores,0) as number_of_stores,
+    ifnull(r2.min_price,0) as minmum_price,
+    ifnull(r3.num_stores,0) as number_of_on_stock_stores,ifnull(r3.min_price,0) as minmum_on_stock_price,
+    ifnull(r4.num_orders,0) as number_of_orders_within_7_days
+    from
+    '''
+    query += "(SELECT * from ("
     for i in range(len(keywords)):
         if i != 0:
             query += "union all "
-        query += "select pid from products where name like '%{}%'".format(keywords[i])
-    query += ")group by pid order by count(pid) DESC"
+        query += "select * from products where name like '%{}%'".format(keywords[i])
+    query += ")group by pid order by count(*) DESC) as r1"
+    query += '''
+    left outer join
+    (
+	select p.pid,count(*) as num_stores,min(c.uprice) as min_price
+	from products p,carries c
+	where p.pid = c.pid
+	group by p.pid
+	
+    ) as r2
+    on r1.pid = r2.pid
+    left outer join
+    (
+	select p.pid,count(*) as num_stores,min(c.uprice) as min_price
+	from products p,carries c
+	where p.pid = c.pid and c.qty > 0
+	group by p.pid
+	
+    ) as r3
+    on r2.pid = r3.pid
+    left outer join
+    (
+       select l.pid,count(*) as num_orders
+       from olines l, orders o
+       where l.oid = o.oid and o.odate > datetime('now','-7 days')
+       group by l.pid
+    )r4
+    on r3.pid = r4.pid
+
+    '''
     cursor.execute(query)
     result = cursor.fetchall()
-    print (result)
+
+    if not len(result):
+        print("No Result Found!")
+        return
+    end = False
+    page = 0
+    while not end:
+        print("*** Select product to see more details ***")
+        end,page = table_menu(result,["Product ID","    Name    ","  Unit  ","#Stores","Min Price","#Stores On Stock",\
+                                      "Min Price On Stock","#Orders Within 7 days"],page,{'function':product_detail})
+
+
+def product_detail(kwarg):
+    global cursor
+    pid = kwarg['row'][0]
+    query = '''
+    select  r2.sid,r2.name,r2.phone,r2.address,r1.uprice,r1.qty,ifnull(r3.num_orders,0) from
+    (
+       select *
+       from carries
+       where pid = ?
+       order by
+       case when qty = 0 then uprice end,
+       case when qty > 0 then uprice end
+    )as r1
+    left outer join
+    (
+	select *
+	from stores
+    )as r2
+    on r2.sid = r1.sid
+    left outer join
+    (
+	select sid,count(*) as num_orders
+	from orders o, olines l
+	where odate > datetime('now','-7 days') and
+	      l.pid = ? and
+	       o.oid = l.oid
+	group by l.sid
+    ) as r3
+    on r2.sid = r3.sid
+'''
+
+    data = (pid,pid)
+    cursor.execute(query,data)
+    result = cursor.fetchall()
+    cols = ["Store ID","   Store Name   "," Store Contact ","    Store Address    ","Price"\
+            ,"Quantity","# of orders within 7 days"]
+
+    query = '''
+    select * from products where pid = ?
+    '''
+    data = (pid,)
+    cursor.execute(query,data)
+    info = cursor.fetchone()
+
+    query = '''select name from categories where cat = ?'''
+    data = (info[3],)
+    cursor.execute(query,data)
+    category = cursor.fetchone()[0]
+    
+
+    end = False
+    page = 0
+    while not end:
+        print("--------------------------------------")
+        print("Product ID\t\t: "+str(info[0]))
+        print("Product Name\t\t: "+str(info[1]))
+        print("Product Unit\t\t: "+str(info[2]))
+        print("Product Category\t: "+category)
+        print("*** Select store to add to your basket ***")
+        end,page = table_menu(result,cols,page,{'function':add_basket,'product':kwarg['row']})
+
+def add_basket(kwarg):
+    global basket
+    pid = kwarg['product'][0]
+    pname = kwarg['product'][1]
+    unit = kwarg['product'][2]
+    sid = kwarg['row'][0]
+    sname = kwarg['row'][1]
+    price = kwarg['row'][4]
+    while 1:
+        qty = input("How many this product you want put in basket(press enter for default 1):\t")
+        if not len(qty):
+            qty = 1
+            break
+        try:
+            qty = int(qty)
+        except:
+            continue
+        else:
+            break
+    if qty >  0:
+        item = Item(sname,sid,pname,pid,unit,price,qty)
+        basket.append(item)
+    
+def table_menu(table,cols,page,kwarg):
+    header = "|Option|"
+    length = [len(header)-2]
+    for col in cols:
+        header += "{}|".format(col)
+        length.append(len(col))
+    spliter = "-"*len(header)
+    print(spliter)
+    print(header)
+    print(spliter)
+
+    start = page*5
+    end = min(page*5+5,len(table))
+    choice = ""
+    for i in range(start,end):
+        content = str(i-start+1)
+        row_string = "|{}{}|".format(content,(length[0]-len(content))*" ")
+        row = table[i]
+        for j in range(len(row)):
+            content = str(row[j])
+            row_string += "{}{}|".format(content,(length[j+1]-len(content))*" ")
+        print(row_string)
+        print(spliter)
+        choice += str(i-start+1)
+    print("6.\tBack to Main Menu")
+    if page != 0:
+        print("<.\tPrevious 5 items")
+    if end < len(table):
+        print(">.\tNext 5 items")
+
+    option = input("Please enter an option ->")
+    if len(option)==1 and option in choice:
+        func = kwarg['function']
+        kwarg['row'] = table[start+int(option)-1]
+        kwarg['index'] = start+int(option)-1
+        func(kwarg)
+        return True,page
+    elif option == "6":
+        return True,page
+    elif option == "<" and page != 0:
+        return False,page-1
+    elif option == ">" and end < len(table):
+        return False,page+1
+    else:
+        print("Invalid option!")
+        return False,page
+            
 
 # set up delivery
 def setup_delivery():
@@ -563,7 +836,8 @@ def signup():
 def main():
     global connection, cursor
 
-    path = ":memory:"
+    #path = ":memory:"
+    path = "test.db"
     # Check if the .db exist
     # If not exist, initialize the table and data
     if not os.path.isfile(path):

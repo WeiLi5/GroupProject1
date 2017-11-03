@@ -1,0 +1,8 @@
+SELECT pid from
+(
+	select pid
+	from products
+	where name like '%1%'
+	group by pid
+	order by count(*) DESC
+)

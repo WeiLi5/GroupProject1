@@ -29,6 +29,9 @@ class Item:
     def get_tuple(self):
         return(self.product_name,self.product_id,self.store_name,self.store_id,self.unit,self.price,self.qty)
 
+    def __eq__(self,other):
+        return self.store_id == other.store_id and self.product_id == other.product_id
+
 # Create hash function in here
 def connect(path):
     global connection, cursor
@@ -123,7 +126,7 @@ def init_tables():
                                     pid         CHAR(6),
                                     qty         INTEGER,
                                     uprice      REAL,
-                                    PRIMARY KEY (sid,pid),    
+                                    PRIMARY KEY (sid,pid),
                                     FOREIGN KEY (sid) REFERENCES stores(sid),
                                     FOREIGN KEY (pid) REFERENCES products(pid));
                     '''
@@ -271,8 +274,6 @@ def init_data():
 
 # User will login as agent or customer
 def login(table):
-    global uid
-
     uid = input(table[0].upper()+table[1:-1]+" ID: ")
     password = getpass.getpass()
     data = (uid, password)
@@ -316,6 +317,8 @@ def login_screen():
         print("Invalid Option!")
 
 
+#place an order
+#the stock will be updated when customer place an order
 def place_order():
     global basket,cursor
     while 1:
@@ -334,11 +337,12 @@ def place_order():
             data = (sid,pid)
             cursor.execute(query,data)
             result = cursor.fetchall()
+            stock = result[0][0]
             if not len(result):
                 print("The store no longer carries this product!")
                 return
-            if result[0][0] < qty:
-                print("The quantity for product(%s) in store(%s) is:\t%d"%(row[0],row[2],result[0][0]))
+            if stock < qty:
+                print("The quantity for product(%s) in store(%s) is:\t%d"%(row[0],row[2],stock))
                 print("The quantity for this product and this store in your basket is:\t%d"%(qty))
                 print("Please change your quantity")
                 modify_item({'index':i})
@@ -347,28 +351,16 @@ def place_order():
                 break
         if all_checked:
             # generate unique id
-            print("\nSetting up the new delivery...\n")
-            orderNo = random.randint(100,1000)
-            cursor.execute("select oid from orders where oid = ?", (orderNo,))
-            checkDup = cursor.fetchone()
-            while checkDup:
-                orderNo = random.randint(100,1000)
-                cursor.execute("select oid from orders where oid = ?", (orderNo,))
-                checkDup = cursor.fetchone()
-
+            print("\nYour order has been placed\n")
+            cursor.execute("select ifnull(max(oid),0) from orders")
+            oid = cursor.fetchone()[0] + 1
 
             # get user address
-            cursor.execute("select address from customers where cid = ?", (uid,))
-            address=cursor.fetchone()
-
-            now=datetime.datetime.today().strftime('%Y-%m-%d')
-            print(now)
-
-
+            cursor.execute("select address from customers where cid = ?", (user_id,))
+            address=cursor.fetchone()[0]
 
             #insert into order
-            #bugs in here
-            cursor.execute("Insert into orders (oid, cid, odate, address) VALUES (?,?,?,?)",(orderNo,uid,now,address))
+            cursor.execute("Insert into orders (oid, cid, odate, address) VALUES (?,?,date('now'),?)",(oid,user_id,address))
             connection.commit()
 
             while (len(basket)):
@@ -379,24 +371,82 @@ def place_order():
                 qty = row[-1]
                 uprice=row[-2]
 
-                #cursor.execute("Insert into orders (trackingNo, oid, pickUpTime, dropOffTime) VALUES (?,?,?,NULL)",
-                          # (trackNo, o, pick_up_time))
-                #connection.commit()
-                
-
                 # insert into olines
                 cursor.execute("Insert into olines (oid, sid, pid, qty, uprice) VALUES (?,?,?,?,?)",
-                           (orderNo, sid, pid, qty, uprice))
-                connection.commit()
+                           (oid, sid, pid, qty, uprice))
 
+                # update stock
+                cursor.execute("UPDATE carries set qty=? where sid=? AND pid=?",(stock-qty,sid,pid))
+
+            connection.commit()
             break
-            
 
-#def list_order():
-    # kwarg = {'function':table_row}
 
-#def table_row(kwarg):
-    # kwarg = {'row':[]}
+#list orders
+def list_orders():
+    query='''
+    select o.oid, o.odate, count(*), sum(l.qty*l.uprice) from
+    orders o, olines l
+    where   o.cid =? and
+            o.oid = l.oid
+    group by o.oid
+    order by o.odate DESC
+        '''
+    data=(user_id)
+    cursor.execute(query, data)
+    result = cursor.fetchall()
+    cols = ["Order ID","   Order date   ","#Products","Total Price"]
+
+    end = False
+    page = 0
+    while not end:
+        print("*** Select an order to see more details ***")
+        end,page = table_menu(result,cols,page,{'function':order_detail})
+
+
+#check the details of an order
+def order_detail(kwarg):
+    oid = kwarg['row'][0]
+
+    #Info of orders
+    query='''
+    select d.trackingNo, d.pickUpTime, d.dropOffTime,o.address
+    from deliveries d, orders o
+    where  o.oid = ?;
+    '''
+    data=(oid,)
+    cursor.execute(query, data)
+    orderInfo = cursor.fetchall()
+    info = ""
+
+    if not len(orderInfo):
+        info += "Status: Not delivery yet"
+    else :
+        info += "Tracking#:\t{}\nPickupTime:\t{}\nDropoffTime:\t{}\nAddress:\t{}\n"
+        info = info.format(orderInfo[0],orderInfo[1],orderInfo[2],orderInfo[3])
+
+
+    query='''
+    select s.sid, s.name, p.pid, p.name, l.qty, p.unit, l.uprice
+    from stores s, products p, olines l, orders o
+    where   o.oid= ? and
+            o.oid =l.oid and
+            l.sid=s.sid and
+            l.pid=p.pid
+    '''
+
+    data=(oid,)
+    cursor.execute(query, data)
+    prodInfo = cursor.fetchall()
+    cols = ['StoreID','    Store Name    ','ProductID','    Product Name    ','Quantity','  Unit  ','Price']
+    end = False
+    page = 0
+    while not end:
+        print("*** Select an order to see more details ***")
+        end,page = table_menu(prodInfo,cols,page,{'function':None})
+
+
+
 
 
 
@@ -454,8 +504,9 @@ def agent_menu():
     else:
         print("Invalid Option!")
 
+#check the basket
 def modify_basket():
-    cols = ["Product Name","Product ID","Store Name","Store ID","  Unit  ","Price","Quantity"]
+    cols = ["Product Name","Product ID","    Store Name    ","Store ID","  Unit  ","Price","Quantity"]
     end = False
     page = 0
     result = []
@@ -465,6 +516,8 @@ def modify_basket():
         print("*** Select item to modify qty, set to 0 to delete it! ***")
         end,page = table_menu(result,cols,page,{'function':modify_item})
 
+
+#change the quantity of the products
 def modify_item(kwarg):
     global basket
     index = kwarg['index']
@@ -484,7 +537,7 @@ def modify_item(kwarg):
         basket.pop(index)
     else:
         item.set_qty(qty)
-        
+
 # Customer can enter keyword(s) to search products
 def search_products():
     keywords = input("Please input one or more keywords: ").split()
@@ -511,7 +564,7 @@ def search_products():
 	from products p,carries c
 	where p.pid = c.pid
 	group by p.pid
-	
+
     ) as r2
     on r1.pid = r2.pid
     left outer join
@@ -520,7 +573,7 @@ def search_products():
 	from products p,carries c
 	where p.pid = c.pid and c.qty > 0
 	group by p.pid
-	
+
     ) as r3
     on r2.pid = r3.pid
     left outer join
@@ -530,7 +583,7 @@ def search_products():
        where l.oid = o.oid and o.odate > datetime('now','-7 days')
        group by l.pid
     )r4
-    on r3.pid = r4.pid
+    on r1.pid = r4.pid
 
     '''
     cursor.execute(query)
@@ -547,6 +600,7 @@ def search_products():
                                       "Min Price On Stock","#Orders Within 7 days"],page,{'function':product_detail})
 
 
+#check the detail of products
 def product_detail(kwarg):
     global cursor
     pid = kwarg['row'][0]
@@ -595,7 +649,7 @@ def product_detail(kwarg):
     data = (info[3],)
     cursor.execute(query,data)
     category = cursor.fetchone()[0]
-    
+
 
     end = False
     page = 0
@@ -608,6 +662,8 @@ def product_detail(kwarg):
         print("*** Select store to add to your basket ***")
         end,page = table_menu(result,cols,page,{'function':add_basket,'product':kwarg['row']})
 
+
+#customer can add products into their basket
 def add_basket(kwarg):
     global basket
     pid = kwarg['product'][0]
@@ -629,8 +685,15 @@ def add_basket(kwarg):
             break
     if qty >  0:
         item = Item(sname,sid,pname,pid,unit,price,qty)
-        basket.append(item)
-    
+        if item in basket:
+            basket[basket.index(item)].qty += qty
+        else:
+            basket.append(item)
+
+
+#this part is for table menu,
+#which is related to showing 5 items
+#and choose next page or last page
 def table_menu(table,cols,page,kwarg):
     header = "|Option|"
     length = [len(header)-2]
@@ -664,10 +727,14 @@ def table_menu(table,cols,page,kwarg):
     option = input("Please enter an option ->")
     if len(option)==1 and option in choice:
         func = kwarg['function']
-        kwarg['row'] = table[start+int(option)-1]
-        kwarg['index'] = start+int(option)-1
-        func(kwarg)
-        return True,page
+        if func == None:
+            print("Invalid option!")
+            return False,page
+        else:
+            kwarg['row'] = table[start+int(option)-1]
+            kwarg['index'] = start+int(option)-1
+            func(kwarg)
+            return True,page
     elif option == "6":
         return True,page
     elif option == "<" and page != 0:
@@ -677,7 +744,7 @@ def table_menu(table,cols,page,kwarg):
     else:
         print("Invalid option!")
         return False,page
-            
+
 
 # set up delivery
 def setup_delivery():
@@ -807,8 +874,6 @@ def update_delivery():
 
 
 def add_stock():
-    
-
     query = "SELECT sid,c.pid,name,qty,uprice FROM carries c, products p WHERE c.pid = p.pid"
     cursor.execute(query)
     result = cursor.fetchall()
@@ -849,7 +914,6 @@ def check_date(date_text):
 
 
 def signup():
-    global uid
     uid = input("Customer ID: ")
     name = input("Customer Name: ")
     addr = input("Address: ")

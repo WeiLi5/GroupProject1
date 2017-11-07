@@ -4,6 +4,7 @@ import hashlib
 import os.path
 import getpass
 import random
+import sys
 
 
 connection = None
@@ -14,8 +15,9 @@ user_type = None
 user_id = None
 basket = []
 
+
 class Item:
-    def __init__(self,store_name,store_id,product_name,product_id,unit,price,qty):
+    def __init__(self, store_name, store_id, product_name, product_id, unit, price, qty):
         self.store_name = store_name
         self.store_id = store_id
         self.product_name = product_name
@@ -23,14 +25,16 @@ class Item:
         self.unit = unit
         self.qty = qty
         self.price = price
-    def set_qty(self,qty):
+
+    def set_qty(self, qty):
         self.qty = qty
 
     def get_tuple(self):
-        return(self.product_name,self.product_id,self.store_name,self.store_id,self.unit,self.price,self.qty)
+        return self.product_name, self.product_id, self.store_name, self.store_id, self.unit, self.price, self.qty
 
-    def __eq__(self,other):
+    def __eq__(self, other):
         return self.store_id == other.store_id and self.product_id == other.product_id
+
 
 # Create hash function in here
 def connect(path):
@@ -44,7 +48,7 @@ def connect(path):
     return
 
 
-#Initialize table
+# Initialize table
 def init_tables():
     global connection, cursor
 
@@ -154,14 +158,16 @@ def init_tables():
 
     return
 
-#For hash function
+
+# For hash function
 def encrypt(password):
     alg = hashlib.sha256()
     password = password.encode('UTF-8')
     alg.update(password)
     return alg.hexdigest()
 
-# Initialize data
+
+# Initialize testing data
 def init_data():
     global connection, cursor
 
@@ -179,7 +185,11 @@ def init_data():
                                 (1, '7-11', '7801001000', '103 78st'),
                                 (2, 'aw', '7802002000', '10934 Whyte'),
                                 (3, 'Tim', '7803003000', '103 & 111A st'),
-                                (4, 'Save-on-food','7804004000', '9743 60Ave');
+                                (4, 'Save-on-food','7804004000', '9743 60Ave'),
+                                (5, 'safeway', '7804336930', '10930 82 Ave NW'),
+                                (6, 'Sobeys', '7804385064', '8225 112 St NW'),
+                                (7, 'Liquor store', '7804331814', '11148 82 AVe'),
+                                (8, 'IKEA', '8666664532', '1311 102 St NW');
                        '''
 
     insert_category = '''
@@ -188,42 +198,72 @@ def init_data():
                                 ('dai', 'daily'),
                                 ('dri', 'drink'),
                                 ('ach', 'alcohol'),
-                                ('veg', 'vegetable');
+                                ('veg', 'vegetable'),
+                                ('fur', 'furniture'),
+                                ('kit', 'kitchen');
                         '''
 
     insert_product = '''
                         INSERT INTO products(pid, name, unit, cat) VALUES
-                                ('123456', 'milk', 'bottle', 'dri'),
-                                ('002390', 'broccoli', 'lb', 'veg'),
-                                ('234576', 'apple', 'lb', 'fru'),
-                                ('234598', 'banana', 'lb', 'fru'),
-                                ('000930', 'Tissue', 'pack', 'dai'),
-                                ('752894', 'vodka', 'bottle', 'ach'),
-                                ('666777', 'potato', 'lb', 'veg');
+                                ('000001', 'milk', 'bottle', 'dri'),
+                                ('000002', 'icetea', 'bottle', 'dri'),
+                                ('000003', 'coke', 'bottle', 'dri'),
+                                ('100001', 'potato', 'lb', 'veg'),
+                                ('100002', 'broccoli', 'lb', 'veg'),
+                                ('200001', 'apple', 'lb', 'fru'),
+                                ('200002', 'banana', 'lb', 'fru'),
+                                ('300001', 'tissue', 'pack', 'dai'),
+                                ('400001', 'vodka', 'bottle', 'ach'),
+                                ('400002', 'brandy', 'bottle', 'ach'),
+                                ('500001', 'sofa', 'piece', 'fur'),
+                                ('500002', 'headboard', 'piece', 'fur'),
+                                ('500003', 'table', 'piece', 'fur'),
+                                ('500004', 'chair', 'piece', 'fur'),
+                                ('600001', 'knife', 'piece', 'kit'),
+                                ('600002', 'chopsticks', 'set', 'kit'),
+                                ('600003', 'crisper', 'piece','kit'),
+                                ('600004', 'mug', 'piece', 'kit');
+
                         '''
 
     insert_oline = '''
                         INSERT INTO olines(oid, sid, pid, qty, uprice) VALUES
-                                (101, 1, '123456', 3, 3.1),
-                                (101, 2, '234576', 3, 3.1),
-                                (103, 2, '123456', 5, 2.0),
-                                (103, 2, '234576', 5, 2.0),
-                                (102, 2, '002390', 2, 6.2),
-                                (203, 3, '234576', 1, 5.4),
-                                (503, 4, '234598', 8, 6.7),
-                                (782, 2, '000930', 9, 3.2),
-                                (321, 2, '666777', 4, 2.1);
+                                (101, 1, '000001', 3, 0.1),
+                                (102, 4, '000002', 5, 0.2),
+                                (103, 2, '000003', 2, 0.3),
+                                (104, 5, '100001', 1, 1.1),
+                                (105, 5, '100002', 8, 1.2),
+                                (106, 5, '100002', 9, 1.2),
+                                (107, 5, '200001', 4, 2.1),
+                                (201, 4, '200002', 3, 2.3),
+                                (202, 6, '300001', 5, 3.0),
+                                (203, 7, '400001', 2, 4.1),
+                                (204, 7, '400002', 1, 4.2),
+                                (205, 8, '500001', 8, 5.1),
+                                (206, 8, '500002', 9, 5.2),
+                                (301, 8, '600001', 3, 6.1),
+                                (302, 8, '600003', 5, 6.3),
+                                (401, 8, '600004', 2, 6.4);
                         '''
 
     insert_order = '''
                         INSERT INTO orders(oid, cid, odate, address) VALUES
-                                (101, 'sss', '2017-10-27', '10239 Jasper Ave'),
-                                (103, 'sss', '2017-10-21', '12123 123 st'),
-                                (102, 'www', '2017-10-27', '9910 107 st'),
-                                (203, 'www', '2017-10-28', '9910 107 st'),
-                                (503, 'uuu', '2017-10-28', '10390 Whyte Ave'),
-                                (782, 'zzz', '2017-10-28', '8920 97 AVe'),
-                                (321, 'www', '2017-10-29', '9910 107 st');
+                                (101, 'sss', '2015-06-27', '10239 Jasper Ave'),
+                                (102, 'sss', '2016-10-21', '12123 123 st'),
+                                (103, 'sss', '2017-07-06', '10239 Jasper Ave'),
+                                (104, 'sss', '2017-07-08', '10239 Jasper Ave'),
+                                (105, 'sss', '2017-09-27', '10239 Jasper Ave'),
+                                (106, 'sss', '2017-10-27', '10239 Jasper Ave'),
+                                (107, 'sss', '2017-10-30', '10239 Jasper Ave'),
+                                (201, 'www', '2017-10-27', '9910 107 st'),
+                                (202, 'www', '2017-10-28', '9910 107 st'),
+                                (203, 'www', '2017-10-29', '9910 107 st'),
+                                (204, 'www', '2017-10-30', '9910 107 st'),
+                                (205, 'www', '2017-10-31', '9910 107 st'),
+                                (206, 'www', '2017-11-01', '9910 107 st'),
+                                (301, 'uuu', '2017-01-13', '10390 Whyte Ave'),
+                                (302, 'uuu', '2017-02-27', '10390 Whyte Ave'),
+                                (401, 'zzz', '2017-10-28', '8920 97 AVe');
                         '''
 
     insert_customer = '''
@@ -237,27 +277,66 @@ def init_data():
 
     insert_carry = '''
                         INSERT INTO carries(sid, pid, qty, uprice) VALUES
-                                (1, '123456', 3, 3.1),
-                                (2, '123456', 5, 2.6),
-                                (2, '002390', 2, 6.2),
-                                (3, '234576', 1, 5.4),
-                                (4, '234576', 1, 2.4),
-                                (2, '234576', 0, 1.4),
-                                (1, '234576', 0, 0.4),
-                                (4, '234598', 8, 6.7),
-                                (2, '000930', 9, 3.2),
-                                (2, '666777', 4, 2.1);
+                                (1, '000001', 10, 0.1),
+                                (2, '000001', 11, 0.2),
+                                (3, '000001', 12, 0.3),
+                                (4, '000001', 13, 0.4),
+                                (5, '000001', 14, 0.2),
+                                (6, '000001', 15, 0.2),
+                                (8, '000001', 16, 0.3),
+                                (4, '000002', 9, 0.2),
+                                (5, '000002', 22, 0.3),
+                                (6, '000002', 14, 0.2),
+                                (1, '000003', 11, 0.3),
+                                (2, '000003', 12, 0.4),
+                                (3, '000003', 13, 0.3),
+                                (4, '000003', 14, 0.6),
+                                (5, '000003', 15, 0.4),
+                                (6, '000003', 6, 0.4),
+                                (7, '000003', 1, 0.5),
+                                (8, '000003', 9, 0.3),
+                                (4, '100001', 28, 1.1),
+                                (5, '100001', 12, 1.0),
+                                (6, '100001', 7, 1.2),
+                                (4, '100002', 31, 1.2),
+                                (5, '100002', 12, 1.2),
+                                (6, '100002', 13, 1.2),
+                                (4, '200001', 4, 2.1),
+                                (5, '200001', 3, 3.1),
+                                (6, '200001', 11, 2.5),
+                                (4, '200002', 5, 2.3),
+                                (5, '200002', 1, 2.4),
+                                (6, '200002', 7, 2.3),
+                                (4, '300001', 8, 2.7),
+                                (5, '300001', 7, 3.0),
+                                (6, '300001', 15, 2.9),
+                                (7, '400001', 10, 4.1),
+                                (7, '400002', 11, 4.2),
+                                (8, '500001', 12, 5.1),
+                                (8, '500002', 2, 5.2),
+                                (8, '600001', 2, 6.1),
+                                (8, '600003', 1, 6.3),
+                                (8, '600004', 7, 6.4);
                         '''
 
     insert_delivery = '''
-                        INSERT INTO deliveries (trackingNo, oid, pickUpTime, dropOffTime) VALUES
-                                (1345, 101, NULL , '2017-10-12'),
-                                (1345, 103, '2017-10-29', '2017-10-12'),
-                                (2468, 102, '2017-10-29', '2017-10-03'),
-                                (2468, 203, '2017-10-29', '2017-10-03'),
-                                (2390, 503, '2017-10-29', '2017-10-02'),
-                                (2903, 782, '2017-10-29', '2017-10-11'),
-                                (4420, 321, '2017-10-30', '2017-10-21');
+                        INSERT INTO deliveries(trackingNo, oid, pickUpTime, dropOffTime) VALUES
+                                (1001, 101, '2015-06-28', '2015-07-08'),
+                                (1002, 102, '2016-10-22', '2016-10-31'),
+                                (1003, 103, '2017-07-09', '2017-07-17'),
+                                (1003, 104, '2017-07-09', '2017-07-17'),
+                                (1005, 105, '2017-10-01', '2017-10-02'),
+                                (1006, 106, '2017-10-29', '2017-10-31'),
+                                (1007, 107, '2017-10-31', '2017-11-01'),
+                                (2001, 201, '2017-10-29', '2017-11-01'),
+                                (2001, 202, '2017-10-29', '2017-11-01'),
+                                (2003, 203, '2017-11-01', NULL),
+                                (2003, 204, '2017-11-01', NULl),
+                                (2003, 205, '2017-11-01', NULL),
+                                (2003, 206, '2017-11-01', NULL),
+                                (3001, 301, '2017-01-14', '2017-01-16'),
+                                (3002, 302, '2017-02-28', '2017-03-04'),
+                                (4001, 401, '2017-10-29', '2017-10-31');
                         '''
     cursor.execute(insert_agent)
     cursor.execute(insert_category)
@@ -271,6 +350,7 @@ def init_data():
 
     connection.commit()
     return
+
 
 # User will login as agent or customer
 def login(table):
@@ -289,10 +369,10 @@ def login(table):
     else:
         print("Username or password is incorrect!")
 
+
 # The main screen to be displayed
 # Ask user to login as Customer or Agent
 # User can also sign up as new customer
-
 def login_screen():
 
     instruction = "\n"+"-"*20+"\n"
@@ -317,10 +397,10 @@ def login_screen():
         print("Invalid Option!")
 
 
-#place an order
-#the stock will be updated when customer place an order
+# place an order
+# the stock will be updated when customer place an order
 def place_order():
-    global basket,cursor
+    global basket, cursor
     while 1:
         if not len(basket):
             print("You have no item in your basket")
@@ -334,97 +414,95 @@ def place_order():
             qty = row[-1]
 
             query = "select qty from carries where sid =? and pid=?"
-            data = (sid,pid)
-            cursor.execute(query,data)
+            data = (sid, pid)
+            cursor.execute(query, data)
             result = cursor.fetchall()
             stock = result[0][0]
             if not len(result):
                 print("The store no longer carries this product!")
                 return
             if stock < qty:
-                print("The quantity for product(%s) in store(%s) is:\t%d"%(row[0],row[2],stock))
-                print("The quantity for this product and this store in your basket is:\t%d"%(qty))
+                print("The quantity for product(%s) in store(%s) is:\t%d" % (row[0], row[2], stock))
+                print("The quantity for this product and this store in your basket is:\t%d" % qty)
                 print("Please change your quantity")
-                modify_item({'index':i})
-                qty = item.get_tuple()[-1]
+                modify_item({'index': i})
+                # qty = item.get_tuple()[-1] # assigned at while loop below
                 all_checked = False
                 break
         if all_checked:
             # generate unique id
-            print("\nYour order has been placed\n")
-            cursor.execute("select ifnull(max(oid),0) from orders")
+            cursor.execute("select ifnull(max(oid),0) from orders")  # # if null ?
             oid = cursor.fetchone()[0] + 1
-
+            print("\nYour order [%i] has been placed\n" % oid)
             # get user address
             cursor.execute("select address from customers where cid = ?", (user_id,))
-            address=cursor.fetchone()[0]
+            address = cursor.fetchone()[0]
 
-            #insert into order
-            cursor.execute("Insert into orders (oid, cid, odate, address) VALUES (?,?,date('now'),?)",(oid,user_id,address))
+            # insert into order
+            cursor.execute("Insert into orders (oid, cid, odate, address) VALUES (?,?,date('now'),?)", (oid, user_id, address))
             connection.commit()
 
-            while (len(basket)):
+            while len(basket):
                 item = basket.pop()
                 row = item.get_tuple()
                 pid = row[1]
                 sid = row[3]
                 qty = row[-1]
-                uprice=row[-2]
+                uprice = row[-2]
 
                 # insert into olines
-                cursor.execute("Insert into olines (oid, sid, pid, qty, uprice) VALUES (?,?,?,?,?)",
-                           (oid, sid, pid, qty, uprice))
+                cursor.execute("Insert into olines (oid, sid, pid, qty, uprice) VALUES (?,?,?,?,?)", (oid, sid, pid, qty, uprice))
 
                 # update stock
-                cursor.execute("UPDATE carries set qty=? where sid=? AND pid=?",(stock-qty,sid,pid))
+                cursor.execute("UPDATE carries set qty=? where sid=? AND pid=?", (stock - qty, sid, pid))
 
             connection.commit()
             break
 
 
-#list orders
+# list orders
 def list_orders():
-    query='''
-    select o.oid, o.odate, count(*), sum(l.qty*l.uprice),d.trackingNo, d.pickUpTime, d.dropOffTime, o.address from
-    orders o, olines l,deliveries d
+    query = '''
+    select o.oid, o.odate, count(*), ROUND(sum(l.qty*l.uprice),2)
+    from orders o, olines l
     where   o.cid =? and
             o.oid = l.oid
     group by o.oid
     order by o.odate DESC
         '''
-    data=(user_id)
+    data = (user_id,)
     cursor.execute(query, data)
     result = cursor.fetchall()
-    cols = ["Order ID","   Order date   ","#Products","Total Price ","Tracking"," PickupTime "," DropoffTime ","      Address       "]
+    cols = ["Order ID", "   Order date   ", "#Products", "Total Price "]
 
     end = False
     page = 0
     while not end:
         print("*** Select an order to see more details ***")
-        end,page = table_menu(result,cols,page,{'function':order_detail})
+        end, page = table_menu(result, cols, page, {'function':order_detail})
 
 
-#check the details of an order
+# check the details of an order
 def order_detail(kwarg):
     oid = kwarg['row'][0]
 
-    # #Info of orders
-    # query='''
-    # select d.trackingNo, d.pickUpTime, d.dropOffTime,o.address
-    # from deliveries d, orders o
-    # where  o.oid = ?;
-    # '''
-    # data=(oid,)
-    # cursor.execute(query, data)
-    # orderInfo = cursor.fetchall()
-    # info = ""
+    # Info of orders
+    query = '''
+        select d.trackingNo, d.pickUpTime, d.dropOffTime,o.address
+        from deliveries d, orders o
+        where  o.oid = ? AND o.oid = d.oid;
+    '''
+    data = (oid,)
+    cursor.execute(query, data)
+    orderInfo = cursor.fetchall()
+    info = ""
 
-    # if not len(orderInfo):
-    #     info += "Status: Not delivery yet"
-    # else :
-    #     info += "Tracking#:\t{}\nPickupTime:\t{}\nDropoffTime:\t{}\nAddress:\t{}\n"
-    #     info = info.format(orderInfo[0],orderInfo[1],orderInfo[2],orderInfo[3])
-
+    if not len(orderInfo):
+        info += "Status: Not delivery yet"
+    else:
+        orderInfo = orderInfo[0]
+        info += "Tracking#:\t{}\nPickupTime:\t{}\nDropOffTime:\t{}\nAddress:\t{}\n"
+        info = info.format(orderInfo[0], orderInfo[1], orderInfo[2], orderInfo[3])
 
     query='''
     select s.sid, s.name, p.pid, p.name, l.qty, p.unit, l.uprice
@@ -435,21 +513,15 @@ def order_detail(kwarg):
             l.pid=p.pid
     '''
 
-    data=(oid,)
+    data = (oid,)
     cursor.execute(query, data)
     prodInfo = cursor.fetchall()
-    cols = ['StoreID','    Store Name    ','ProductID','    Product Name    ','Quantity','  Unit  ','Price']
+    cols = ['StoreID', '    Store Name    ', 'ProductID', '    Product Name    ', 'Quantity', '  Unit  ', 'Price']
     end = False
     page = 0
     while not end:
-        #print(info)
-        print("*** Products details ***")
-        end,page = table_menu(prodInfo,cols,page,{'function':None})
-
-
-
-
-
+        print(info)
+        end, page = table_menu(prodInfo, cols, page, {'function': None})
 
 
 # After the user login as a customer
@@ -474,15 +546,15 @@ def customer_menu():
     elif option == '4':
         modify_basket()
     elif option == '5':
-        global is_login,basket
+        global is_login, basket
         is_login = False
         basket = []
     else:
         print("Invalid Option!")
 
+
 # After the user login as a agent
 # The agent menu will be displayed
-
 def agent_menu():
     instruction = "\n"+"-"*20+"\n"
     instruction += "1.\tSet up a delivery\n"
@@ -505,9 +577,10 @@ def agent_menu():
     else:
         print("Invalid Option!")
 
-#check the basket
+
+# check the basket
 def modify_basket():
-    cols = ["Product Name","Product ID","    Store Name    ","Store ID","  Unit  ","Price","Quantity"]
+    cols = ["Product Name", "Product ID", "    Store Name    ", "Store ID", "  Unit  ", "Price", "Quantity"]
     end = False
     page = 0
     result = []
@@ -515,29 +588,30 @@ def modify_basket():
         result.append(item.get_tuple())
     while not end:
         print("*** Select item to modify qty, set to 0 to delete it! ***")
-        end,page = table_menu(result,cols,page,{'function':modify_item})
+        end, page = table_menu(result, cols, page, {'function': modify_item})
 
 
-#change the quantity of the products
+# change the quantity of the products
 def modify_item(kwarg):
     global basket
     index = kwarg['index']
     item = basket[index]
     while 1:
-       qty = input("You want change quantity to(set to 0 to delete it): ")
-       if not len(qty):
-           qty = 1
-           break
-       try:
-           qty = int(qty)
-       except:
-           continue
-       else:
-           break
+        qty = input("You want change quantity to(set to 0 to delete it): ")
+        if not len(qty):
+            qty = 1
+            break
+        try:
+            qty = int(qty)
+        except ValueError:
+            print("\nInvalid Input!")
+        else:
+            break
     if qty <= 0:
         basket.pop(index)
     else:
         item.set_qty(qty)
+
 
 # Customer can enter keyword(s) to search products
 def search_products():
@@ -597,11 +671,11 @@ def search_products():
     page = 0
     while not end:
         print("*** Select product to see more details ***")
-        end,page = table_menu(result,["Product ID","    Name    ","  Unit  ","#Stores","Min Price","#Stores On Stock",\
-                                      "Min Price On Stock","#Orders Within 7 days"],page,{'function':product_detail})
+        end, page = table_menu(result, ["Product ID", "    Name    ", "  Unit  ", "#Stores", "Min Price", "#Stores On Stock",
+                                        "Min Price On Stock", "#Orders Within 7 days"], page, {'function': product_detail})
 
 
-#check the detail of products
+# check the detail of products
 def product_detail(kwarg):
     global cursor
     pid = kwarg['row'][0]
@@ -633,11 +707,11 @@ def product_detail(kwarg):
     on r2.sid = r3.sid
 '''
 
-    data = (pid,pid)
-    cursor.execute(query,data)
+    data = (pid, pid)
+    cursor.execute(query, data)
     result = cursor.fetchall()
-    cols = ["Store ID","   Store Name   "," Store Contact ","    Store Address    ","Price"\
-            ,"Quantity","# of orders within 7 days"]
+    cols = ["Store ID", "   Store Name   ", " Store Contact ", "    Store Address    ", "Price", "Quantity",
+            "# of orders within 7 days"]
 
     query = '''
     select * from products where pid = ?
@@ -648,10 +722,8 @@ def product_detail(kwarg):
 
     query = '''select name from categories where cat = ?'''
     data = (info[3],)
-    cursor.execute(query,data)
+    cursor.execute(query, data)
     category = cursor.fetchone()[0]
-
-
     end = False
     page = 0
     while not end:
@@ -661,10 +733,10 @@ def product_detail(kwarg):
         print("Product Unit\t\t: "+str(info[2]))
         print("Product Category\t: "+category)
         print("*** Select store to add to your basket ***")
-        end,page = table_menu(result,cols,page,{'function':add_basket,'product':kwarg['row']})
+        end, page = table_menu(result, cols, page, {'function': add_basket, 'product': kwarg['row']})
 
 
-#customer can add products into their basket
+# customer can add products into their basket
 def add_basket(kwarg):
     global basket
     pid = kwarg['product'][0]
@@ -680,21 +752,21 @@ def add_basket(kwarg):
             break
         try:
             qty = int(qty)
-        except:
-            continue
+        except ValueError:
+            print("\nInvalid Input!")
         else:
             break
-    if qty >  0:
-        item = Item(sname,sid,pname,pid,unit,price,qty)
+    if qty > 0:
+        item = Item(sname, sid, pname, pid, unit, price, qty)
         if item in basket:
             basket[basket.index(item)].qty += qty
         else:
             basket.append(item)
 
 
-#this part is for table menu,
-#which is related to showing 5 items
-#and choose next page or last page
+# this part is for table menu,
+# which is related to showing 5 items
+# and choose next page or last page
 def table_menu(table,cols,page,kwarg):
     header = "|Option|"
     length = [len(header)-2]
@@ -707,15 +779,15 @@ def table_menu(table,cols,page,kwarg):
     print(spliter)
 
     start = page*5
-    end = min(page*5+5,len(table))
+    end = min(page*5+5, len(table))
     choice = ""
-    for i in range(start,end):
+    for i in range(start, end):
         content = str(i-start+1)
-        row_string = "|{}{}|".format(content,(length[0]-len(content))*" ")
+        row_string = "|{}{}|".format(content, (length[0]-len(content))*" ")
         row = table[i]
         for j in range(len(row)):
             content = str(row[j])
-            row_string += "{}{}|".format(content,(length[j+1]-len(content))*" ")
+            row_string += "{}{}|".format(content, (length[j+1]-len(content))*" ")
         print(row_string)
         print(spliter)
         choice += str(i-start+1)
@@ -726,35 +798,35 @@ def table_menu(table,cols,page,kwarg):
         print(">.\tNext 5 items")
 
     option = input("Please enter an option ->")
-    if len(option)==1 and option in choice:
+    if len(option) == 1 and option in choice:
         func = kwarg['function']
-        if func == None:
+        if not func:
             print("Invalid option!")
-            return False,page
+            return False, page
         else:
             kwarg['row'] = table[start+int(option)-1]
             kwarg['index'] = start+int(option)-1
             func(kwarg)
-            return True,page
+            return True, page
     elif option == "6":
-        return True,page
+        return True, page
     elif option == "<" and page != 0:
-        return False,page-1
+        return False, page-1
     elif option == ">" and end < len(table):
-        return False,page+1
+        return False, page+1
     else:
         print("Invalid option!")
-        return False,page
+        return False, page
 
 
 # set up delivery
 def setup_delivery():
     print("\nSetting up the new delivery...\n")
-    trackNo = random.randint(1000,10000)
+    trackNo = random.randint(1000, 10000)
     cursor.execute("select trackingNo from deliveries where trackingNo = ?", (trackNo,))
     result = cursor.fetchone()
     while result:
-        trackNo = random.randint(1000,10000)
+        trackNo = random.randint(1000, 10000)
         cursor.execute("select trackingNo from deliveries where trackingNo = ?", (trackNo,))
         result = cursor.fetchone()
     oid = input("Enter order ID: ")
@@ -787,11 +859,13 @@ def setup_delivery():
                            (trackNo, o, pick_up_time))
                 connection.commit()
                 print("\nSuccessfully set up delivery for [ %s ] with tracking number: [" % o, trackNo, '] .\n')
-            except sqlite3.Error as err: # no help :(
+            except sqlite3.Error as err:  # no help :(
                 print("Action Failed: " + str(err))
                 print("Setup was not processed!")
                 return
 
+
+# update the delivery including PickUpTime, DropOffTime and removal of the order
 def update_delivery():
     trackNo = input("\nPlease enter the trackingNo [empty to cancel]: ")
     if not trackNo:
@@ -810,15 +884,17 @@ def update_delivery():
         print("-"*25+"\n")
         return
     index = 0
-    print("-"*50)
+    print("-"*48)
+    print('|Index |TrackingNo|Order|PickUpTime|DropOffTime| ')
     for entry in result:
         index += 1
-        print("%i.\t" % index, entry)
-    print("-"*50+'\n')
+        print("|%i.    |" % index + "%-10i" % entry[0] + '|' + "%-5s" % str(entry[1]) + '|' + "%-10s" % str(entry[2])+'|'
+              + "%-11s" % str(entry[3])+'|')
+    print("-"*48+'\n')
     while True:
         choice = input("Select an order to modify -> ")
         try:
-            if int(choice) > index:
+            if int(choice) > index or int(choice) <= 0:
                 print("\nIndex Out of Range!\n")
             else:
                 break
@@ -862,7 +938,7 @@ def update_delivery():
         elif action == '3':
             confirm = input("Are you sure to remove the order from delivery? ['y' for confirmation] ")
             if confirm.upper() == 'Y':
-                cursor.execute("delete from deliveries where oid = ?", (oid,))
+                cursor.execute("delete from deliveries where oid = ? and trackingNo = ?", (oid, trackNo,))
                 connection.commit()
                 print("\nOrder %i has been removed from deliveries!\n" % oid)
                 return
@@ -874,19 +950,21 @@ def update_delivery():
             print("\nInvalid Input!\n")
 
 
+# add stock and new products
 def add_stock():
-    
-    print("sid: Store ID")
-    print("pid: Product ID")
-    print("name: Product Name")
-    print("qty: Quatitity of this product in stock")
-    print("price: Unit Price")
-    print("|sid|  pid  | name |qty|price|")
     query = "SELECT sid,c.pid,name,qty,uprice FROM carries c, products p WHERE c.pid = p.pid"
     cursor.execute(query)
     result = cursor.fetchall()
-    for entry in result:
-        print(entry)
+    print("*** Select a store and a product to add stock ***")
+    line = "-" * 54
+    print(line)
+    print("|Store ID|Product ID|    Name    |Quantity|Unit price|")
+    print(line)
+    for item in result:
+        print("|" + "%-8s" % item[0] + "|" + "%-10s" % item[1] +
+              "|" + "%-12s" % item[2] + "|" + "%-8s" % item[3] +
+              "|" + "%-10s" % item[4] + "|")
+        print(line)
     instruction = "\n" + "-" * 20 + "\n"
     instruction += "1.\tAdd to stock\n"
     instruction += "2.\tChange the unit price\n"
@@ -896,60 +974,106 @@ def add_stock():
 
     print(instruction)
     option = input("Please enter an option ->")
-    if option[0] == '1':
+    if option == '1':
         sid = input("Enter store id : ")
         pid = input("Enter product id: ")
+        cursor.execute("select sid, pid from carries where sid = ? and pid = ? ", (sid, pid,))
+        result = cursor.fetchone()
+        if not result:
+            print("The store or product you entered not exists.")
+            return
         qty = input("Enter the number of products to be added to the stock: ")
+        try:
+            int(qty)
+        except ValueError:
+            print("Input qty is not valid.")
+            return
+        if int(qty) <= 0:
+            print("qty must be positive.")
+            return
         change_qty = "UPDATE carries SET qty = qty + " + qty
-        change_qty += " WHERE sid=" + sid + " and pid=" + pid
-        cursor.execute(change_qty)
+        change_qty += " WHERE sid=" + sid + " and pid=?;"
+        cursor.execute(change_qty, (pid,))
         connection.commit()
-    elif option[0] == '2':
+    elif option == '2':
         sid = input("Enter store id : ")
         pid = input("Enter product id: ")
+        cursor.execute("select sid, pid from carries where sid = ? and pid = ? ", (sid, pid,))
+        result = cursor.fetchone()
+        if not result:
+            print("The store or product you entered not exists.")
+            return
         uprice = input("Enter the unit price: ")
+        try:
+            float(uprice)
+        except ValueError:
+            print("Input price is not valid.")
+            return
         change_price = "UPDATE carries SET uprice =" + uprice
-        change_price += " WHERE sid=" + sid + " and pid=" + pid
-        cursor.execute(change_price)
+        change_price += " WHERE sid=" + sid + " and pid=?"
+        cursor.execute(change_price, (pid,))
         connection.commit()
-    elif option[0] == '3':
+    elif option == '3':
         sid = input("Enter store id: ")
         pid = input("Enter product id: ")
         qty = input("Enter quantity of the product: ")
         uprice = input("Enter unit price: ")
-        query = "SELECT sid, pid FROM carries WHERE sid="+sid +" and pid =" +pid
-        cursor.execute(query)    
+        try:
+            int(qty) and float(uprice)
+        except ValueError:
+            print("Input qty or price is not valid.")
+            return
+        if int(qty) <= 0:
+            print("qty must be positive.")
+            return
+        query = "SELECT sid, pid FROM carries WHERE sid=" + sid + " and pid =" + pid
+        cursor.execute(query)
         result = cursor.fetchone()
-        if result == None:
+        if not result:
             add_product = "INSERT INTO carries(sid, pid, qty, uprice)"
-            add_product += " VALUES ("+sid+", '"+pid+" ', "+ qty+", " + uprice+");"
-            cursor.execute(add_product)
+            add_product += " VALUES (" + sid + ", '" + pid + "', " + qty + ", " + uprice + ");"
+            try:
+                cursor.execute(add_product)
+            except sqlite3.IntegrityError:
+                print("The store or product you entered not exists.")
+                print("Want to create a new product? Choose add new product information instead.\n")
+                return
             connection.commit()
         else:
             print("\nThis product already exists in this store, please choose ADD TO STOCK.")
-    elif option[0] == '4':
+    elif option == '4':
         pid = input("Enter product id: ")
-        query = "SELECT pid FROM products WHERE pid="+pid
+        query = "SELECT pid FROM products WHERE pid=" + pid
         cursor.execute(query)
         result = cursor.fetchone()
-        if result == None:
+        if not result:
             name = input("Enter product name: ")
             unit = input("Enter unit name: ")
-            print("List of Categories")
+            print("*** Select a category ***")
             query = "SELECT * FROM categories"
-            cursor.execute(query) 
+            cursor.execute(query)
             result = cursor.fetchall()
-            for entry in result:
-                print(entry)            
-            cat = input("Enter the categories (3 characters): ")
+            line = "-" * 18
+            print(line)
+            print("|Abb|  Category  |")
+            print(line)
+            for item in result:
+                print("|" + "%-3s" % item[0] + "|" + "%-12s" % item[1] + "|")
+                print(line)
+            cat = input("Enter the categories (3 characters abbreviation): ")
             new_product = "INSERT INTO products(pid, name, unit, cat)"
-            new_product = " VALUES ("+pid+",'"+name+"', '" +unit+"','"+cat+"');"
-            cursor.execute(new_product)
+            new_product += " VALUES (" + "?" + ",'" + name + "', '" + unit + "','" + cat + "');"
+            try:
+                cursor.execute(new_product, (pid,))
+            except sqlite3.IntegrityError:
+                print("The category your entered not exists.")
+                return
             connection.commit()
         else:
             print("\nInformation of this product already exists.")
     else:
         print("\nInvalid option!")
+
 
 def check_date(date_text):
     try:
@@ -959,12 +1083,22 @@ def check_date(date_text):
         return False
 
 
+# new customer register
 def signup():
     uid = input("Customer ID: ")
+    while not uid:
+        print("\n****Customer ID cannot be empty! **** ")
+        uid = input("Customer ID: ")
     name = input("Customer Name: ")
-    addr = input("Address: ")
+    address = input("Address: ")
+    while not address:
+        print("\n***Please enter a address for delivery!***")
+        address = input("Address: ")
     password = getpass.getpass()
-    data = (uid, name, addr, password)
+    while not password:
+        print("\n***Please enter a password!***")
+        password = getpass.getpass()
+    data = (uid, name, address, password)
     query = "INSERT INTO customers VALUES(?,?,?,hash(?))"
     try:
         cursor.execute(query, data)
@@ -982,8 +1116,12 @@ def signup():
 def main():
     global connection, cursor
 
-    #path = ":memory:"
-    path = "test.db"
+    if len(sys.argv) == 1:
+        print("-> No path is given, using memory instead!")
+        path = ':memory:'
+    else:
+        path = sys.argv[1]
+
     # Check if the .db exist
     # If not exist, initialize the table and data
     if not os.path.isfile(path):
@@ -1001,6 +1139,7 @@ def main():
             customer_menu()
     connection.close()
     return
+
 
 if __name__ == "__main__":
     main()
